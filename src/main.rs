@@ -1,10 +1,12 @@
+use std::env::current_exe;
 use std::io::{stdin,stdout,Write, Error};
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::SplitWhitespace;
-use std::{env, fs};
+use std::{default, env, fs};
 use std::fs::{DirEntry, Metadata, read_dir};
 use std::process::{Command, Output};
+use dir::home_dir;
 
 // execute bits for a file UNIX
 const S_IXUSR: u32 = 0o100;
@@ -84,6 +86,7 @@ fn type_util(mut tokens: SplitWhitespace<'_>){
         "echo" => println!("{} is a shell builtin", util),
         "type" => println!("{} is a shell builtin", util),
         "exit" => println!("{} is a shell builtin", util),
+        "cd" => println!("{} is a shell builtin", util),
         _ => {
             let file_path: Option<PathBuf> = pathenv_search(util);
             if let Some(path) = file_path {
@@ -93,10 +96,16 @@ fn type_util(mut tokens: SplitWhitespace<'_>){
     }
 }
 
-fn pwd_util(){
+fn pwd_util() -> Option<PathBuf>{
     match env::current_dir(){
-        Ok(path) => println!("{}", path.display()),
-        Err(e) => println!("Failed to get current working dir {}", e),
+        Ok(path) => {
+            println!("{}", path.display());
+            Some(path)
+        },
+        Err(e) => {
+            println!("Failed to get current working dir {}", e);
+            None
+        }
     }
 }
 
@@ -106,6 +115,38 @@ fn change_directory_util(mut tokens: SplitWhitespace<'_>){
         None => return,
     };
 
+    if dir == "~"{
+        if let Some(home_dir) = dir::home_dir(){
+            let result: Result<(), Error> = env::set_current_dir(home_dir);
+            match result{
+                Ok(()) => return,
+                Err(_) => println!("cd : {}: No such file or directory", dir),
+            }   
+        }
+    }
+
+    // if there is the ../ parent dir ones
+    let delimitor: &'static str = "/";
+    let parts: Vec<&str>= dir.split(delimitor).collect();
+    let size: usize = parts.len();
+    if let Some(mut current_dir) = pwd_util(){
+        for i in 0..size{
+            // get parent, set_current_dir to it, then loop again
+            if !current_dir.pop(){
+                let result: Result<(), Error> = env::set_current_dir(dir);
+                match result{
+                    Ok(()) => return,
+                    Err(_) => println!("cd : {}: No such file or directory", dir),
+                }
+            }
+        }
+
+    }
+
+    // ./usr/bin (go somewhere from current dir), ../../../ (up parent dirs), ~ (home dir)
+    // so check if period, check if slash or another period, if another period, split on / and count, if ~ == home using home_dir()
+    // if its just none of that assume from current directory
+    // PathBuf has a .parent() function for getting parent, 
     let result: Result<(), Error> = env::set_current_dir(dir);
     match result{
         Ok(()) => return,
@@ -117,9 +158,11 @@ fn shell_util(mut tokens: SplitWhitespace<'_>){
     // execute shell util calling helper functions or not found
     let command: &str = tokens.next().unwrap_or("Bad");
     match  command {
-        "pwd" => pwd_util(),
         "echo" => echo_util(tokens),
         "type" => type_util(tokens),
+        "pwd" => {
+            _ = pwd_util();
+        }
         "cd" => change_directory_util(tokens),
         _ => {
             let output: Output = execute_command(command, tokens);
@@ -138,7 +181,6 @@ fn shell_util(mut tokens: SplitWhitespace<'_>){
 }
 
 fn main() {
-
     loop {
         let mut input: String = String::new();
         print!("$ ");
