@@ -1,8 +1,10 @@
-use std::io::{stdin,stdout,Write};
+use std::io::{stdin,stdout,Write, Error};
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 use std::str::SplitWhitespace;
 use std::{env, fs};
 use std::fs::{DirEntry, Metadata, read_dir};
+use std::process::{Command, Output};
 
 // execute bits for a file UNIX
 const S_IXUSR: u32 = 0o100;
@@ -14,15 +16,27 @@ fn echo_util(tokens: SplitWhitespace<'_>){
     println!();
 }
 
+fn execute_command(executable: &str, args: SplitWhitespace<'_>) -> Output{
+    let file_path: Option<PathBuf> = pathenv_search(executable);
+    // unwrap here because filepath should already be checked to be valid in pathenv_search 
+    let exe_path: PathBuf = file_path.unwrap();
+    let output: Output = Command::new(exe_path)
+        .args(args)
+        .output()
+        .expect("failed to execute");
+    output
+}
 
-fn pathenv_search(util: &str) -> bool{
+
+fn pathenv_search(util: &str) -> Option<PathBuf>{
     let key: &str = "PATH";
     match env::var_os(key){
         Some(paths) => {
             // paths of dirs
             for path in env::split_paths(&paths){
                 // ptr to directory
-                if let Ok(entry) = read_dir(&path){
+                if path.is_dir(){
+                    if let Ok(entry) = read_dir(&path){
                     // loop through files in the dir
                     for file in entry{
                         // let dir_entry: fs::DirEntry = file.unwrap();
@@ -45,29 +59,57 @@ fn pathenv_search(util: &str) -> bool{
                             if mode & S_IXUSR == 0{
                                 continue;
                             }
-                            println!("{} is {}", util, file_path.display());
-                            return true;
+                            return Some(file_path);
                         }
                     }
+                }   
                 }
             }
             println!("{}: not found", util);
-            false
+            None
         }
         _ => {
             println!("Key not defined");
-            false
+            None
         },
     }
 }
 
 fn type_util(mut tokens: SplitWhitespace<'_>){
-    let util: &str = tokens.next().unwrap_or("Bad");
+    let util: &str = match tokens.next(){
+        Some(u) => u,
+        None => return,
+    };
     match util {
         "echo" => println!("{} is a shell builtin", util),
         "type" => println!("{} is a shell builtin", util),
         "exit" => println!("{} is a shell builtin", util),
-        _ => _ = pathenv_search(util),
+        _ => {
+            let file_path: Option<PathBuf> = pathenv_search(util);
+            if let Some(path) = file_path {
+                println!("{} is {}", util, path.display());
+            }
+        },
+    }
+}
+
+fn pwd_util(){
+    match env::current_dir(){
+        Ok(path) => println!("{}", path.display()),
+        Err(e) => println!("Failed to get current working dir {}", e),
+    }
+}
+
+fn change_directory_util(mut tokens: SplitWhitespace<'_>){
+    let dir: &str = match tokens.next(){
+        Some(d) => d,
+        None => return,
+    };
+
+    let result: Result<(), Error> = env::set_current_dir(dir);
+    match result{
+        Ok(()) => return,
+        Err(_) => println!("cd : {}: No such file or directory", dir),
     }
 }
 
@@ -75,9 +117,22 @@ fn shell_util(mut tokens: SplitWhitespace<'_>){
     // execute shell util calling helper functions or not found
     let command: &str = tokens.next().unwrap_or("Bad");
     match  command {
+        "pwd" => pwd_util(),
         "echo" => echo_util(tokens),
         "type" => type_util(tokens),
-        _ => println!("{}: command not found",command),
+        "cd" => change_directory_util(tokens),
+        _ => {
+            let output: Output = execute_command(command, tokens);
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                println!("{}", stdout);
+            }
+            else{
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                eprintln!("Command failed with status {}", output.status);
+                eprintln!("Error {}", stderr);
+            }
+        },
     }
 
 }
