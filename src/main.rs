@@ -9,6 +9,12 @@ use std::process::{Command, Output};
 // execute bits for a file UNIX
 const S_IXUSR: u32 = 0o100;
 
+// tokens will need to own data since the data parsing will not live past the parsing func
+struct Tokens {
+    command: String,
+    args: Vec<String>
+}
+
 fn echo_util(tokens: SplitWhitespace<'_>){
     for token in tokens{
         print!("{} ", token);
@@ -17,6 +23,7 @@ fn echo_util(tokens: SplitWhitespace<'_>){
 }
 
 fn execute_command(executable: &str, args: SplitWhitespace<'_>) -> Option<Output>{
+    // let i = myVec.iter() to then send that to execute commands
     let file_path: Option<PathBuf> = pathenv_search(executable);
     // unwrap here because filepath should already be checked to be valid in pathenv_search 
     //let exe_path: PathBuf = file_path.unwrap();
@@ -133,9 +140,37 @@ fn change_directory_util(mut tokens: SplitWhitespace<'_>){
     }
 }
 
+
+// I am going to consume the iterator into a Vector Strings, as I consume each, I will process for any special characters
+// then I will change my functions to consume a reference to the vector to basically just read from it, shouldnt need mut
+// like I do with the iterator. I also need to look into handling errors in Rust to do it with more of a methedology, 
+// right now I have a lot of silent errors
+// Actually I may need to write my own parser at this point
+// struct to handle tokens, just command and then vec of tokens
+// 1. read until first space, thats the command
+// 2. read next char, is it a special char? single or double quotes, backslash and the combinations made from this
+//      - if single quote follow rules, prolly read till next is found and just keep everything as the token including the single quotes
+//      - empty quotes ignored
+//      - next to each other == concat them
+//      - remove the actual quotes when processed
+fn tokenizer(input: &str){
+
+}
+
+
+// fn clean_tokens(input: &str){
+//     let vec_tokens: Vec<String> = input
+//         .split(' ')
+//         .map(|token: &str| {
+//             token.to_lowercase()
+//         })
+//         .collect();
+// }
+
 fn shell_util(mut tokens: SplitWhitespace<'_>){
     // execute shell util calling helper functions or not found
     let command: &str = tokens.next().unwrap_or("Bad");
+
     match  command {
         "echo" => echo_util(tokens),
         "type" => type_util(tokens),
@@ -176,6 +211,7 @@ fn main() {
         }
 
         let tokens:SplitWhitespace<'_> = input.split_whitespace();
+        // let tokens
 
         shell_util(tokens);
     }
