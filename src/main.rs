@@ -1,12 +1,10 @@
-use std::env::current_exe;
 use std::io::{stdin,stdout,Write, Error};
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::{ PathBuf};
 use std::str::SplitWhitespace;
-use std::{default, env, fs};
+use std::{env, fs};
 use std::fs::{DirEntry, Metadata, read_dir};
 use std::process::{Command, Output};
-use dir::home_dir;
 
 // execute bits for a file UNIX
 const S_IXUSR: u32 = 0o100;
@@ -18,15 +16,18 @@ fn echo_util(tokens: SplitWhitespace<'_>){
     println!();
 }
 
-fn execute_command(executable: &str, args: SplitWhitespace<'_>) -> Output{
+fn execute_command(executable: &str, args: SplitWhitespace<'_>) -> Option<Output>{
     let file_path: Option<PathBuf> = pathenv_search(executable);
     // unwrap here because filepath should already be checked to be valid in pathenv_search 
-    let exe_path: PathBuf = file_path.unwrap();
-    let output: Output = Command::new(exe_path)
-        .args(args)
-        .output()
-        .expect("failed to execute");
-    output
+    //let exe_path: PathBuf = file_path.unwrap();
+    if let Some(exe_path) = file_path{
+        let output: Output = Command::new(exe_path)
+            .args(args)
+            .output()
+            .expect("failed to execute");
+        return Some(output)
+    }
+    None
 }
 
 
@@ -110,47 +111,25 @@ fn pwd_util() -> Option<PathBuf>{
 }
 
 fn change_directory_util(mut tokens: SplitWhitespace<'_>){
-    let dir: &str = match tokens.next(){
+    let directory: &str = match tokens.next(){
         Some(d) => d,
         None => return,
     };
 
-    if dir == "~"{
+    if directory == "~"{
         if let Some(home_dir) = dir::home_dir(){
             let result: Result<(), Error> = env::set_current_dir(home_dir);
             match result{
                 Ok(()) => return,
-                Err(_) => println!("cd : {}: No such file or directory", dir),
+                Err(_) => println!("cd : {}: No such file or directory", directory),
             }   
         }
     }
-
-    // if there is the ../ parent dir ones
-    let delimitor: &'static str = "/";
-    let parts: Vec<&str>= dir.split(delimitor).collect();
-    let size: usize = parts.len();
-    if let Some(mut current_dir) = pwd_util(){
-        for i in 0..size{
-            // get parent, set_current_dir to it, then loop again
-            if !current_dir.pop(){
-                let result: Result<(), Error> = env::set_current_dir(dir);
-                match result{
-                    Ok(()) => return,
-                    Err(_) => println!("cd : {}: No such file or directory", dir),
-                }
-            }
-        }
-
-    }
-
-    // ./usr/bin (go somewhere from current dir), ../../../ (up parent dirs), ~ (home dir)
-    // so check if period, check if slash or another period, if another period, split on / and count, if ~ == home using home_dir()
-    // if its just none of that assume from current directory
-    // PathBuf has a .parent() function for getting parent, 
-    let result: Result<(), Error> = env::set_current_dir(dir);
+     
+    let result: Result<(), Error> = env::set_current_dir(directory);
     match result{
         Ok(()) => return,
-        Err(_) => println!("cd : {}: No such file or directory", dir),
+        Err(_) => println!("cd : {}: No such file or directory", directory),
     }
 }
 
@@ -165,15 +144,17 @@ fn shell_util(mut tokens: SplitWhitespace<'_>){
         }
         "cd" => change_directory_util(tokens),
         _ => {
-            let output: Output = execute_command(command, tokens);
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
+            // let output: Output = execute_command(command, tokens);
+            if let Some(output) =  execute_command(command, tokens){
+                if output.status.success() {
+                let stdout: std::borrow::Cow<'_, str> = String::from_utf8_lossy(&output.stdout);
                 println!("{}", stdout);
-            }
-            else{
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                eprintln!("Command failed with status {}", output.status);
-                eprintln!("Error {}", stderr);
+                }
+                else{
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    eprintln!("Command failed with status {}", output.status);
+                    eprintln!("Error {}", stderr);
+                }   
             }
         },
     }
