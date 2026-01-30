@@ -1,4 +1,3 @@
-use std::intrinsics::simd::simd_and;
 use std::io::{stdin,stdout,Write, Error};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{ PathBuf};
@@ -14,6 +13,31 @@ const S_IXUSR: u32 = 0o100;
 struct Tokens {
     command: String, 
     args: Vec<String> 
+}
+
+impl Tokens {
+    fn new_tokens() -> Tokens{
+        Tokens{
+            command : String::new(),
+            args : Vec::new(),
+        }
+    }
+}
+
+struct TokenState {
+    start_single_quote: bool,
+    quote_seen: bool,
+    space_seen: bool,
+}
+
+impl TokenState {
+    fn new_token_state() -> TokenState{
+        TokenState{
+            start_single_quote: false,
+            quote_seen: false,
+            space_seen: false,
+        }
+    }
 }
 
 
@@ -162,13 +186,12 @@ Tokenizer Rules
 fn tokenizer(input: &str){
     // can I put it all into a stack vector, with delimintor between tokens?
     // let words: Vec<&str> = input.split(" ").collect();
-    let mut tokens: Tokens = Tokens{
-        command : String::new(),
-        args : Vec::new(),
-    };
+    let mut tokens : Tokens = Tokens::new_tokens();
+    let mut state: TokenState = TokenState::new_token_state();
 
     // get command, probably faster than split_whitespace to then ignore the rest
-    while let Some(c) = input.chars().next(){
+    let mut chars: std::str::Chars<'_> = input.chars();
+    while let Some(c) = chars.next(){
         if c.is_whitespace(){
             break;
         }
@@ -176,30 +199,30 @@ fn tokenizer(input: &str){
             tokens.command.push(c);
         }
     }
-    // let mut command: String = String::new();
-    // let mut args: Vec<String> = Vec::new();
-    let mut single_quote: bool = false;
-    let mut is_space: bool = false;
-    let mut quote_last: bool = false;
 
-    // dbg!(words);
-
-    while let Some(c) = input.chars().next(){
+    while let Some(c) = chars.next(){
+        println!("{}", c);
         match c {
             '\'' => {
                 // if single quote and last char was quote, ignore or concat them
                 // if single quote is already set, then this must be end quote
-                if single_quote && quote_last{
-                    single_quote = false;
+                if state.start_single_quote && state.quote_seen{
+                    state.start_single_quote = false;
                     continue;
                 }
-                else if is_space {
+                else if state.quote_seen && !state.start_single_quote {
+                    state.start_single_quote = true;
+                }
+                else if state.start_single_quote{
+                    state.start_single_quote = false;
                     // let tmp_str: String = String::new();
                 }
                 // single quote is false 
                 else{
-
+                    state.start_single_quote = true;
                 }
+                state.quote_seen = true;
+                state.space_seen = false;
                 // let last_index: usize = tokens.args.len();
                 // tokens.args[last_index].push(c);
                 // single_quote = true;
@@ -207,32 +230,57 @@ fn tokenizer(input: &str){
             },
             ' ' => {
                 // if we saw a single quote, then we need to keep the space and its not a normal space but a char
-                if single_quote{
-                    let last_index: usize = tokens.args.len();
-                    tokens.args[last_index].push(c);
-                    is_space = true;
+                if state.start_single_quote{
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else{
+                        let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].push(c);
+                    }
                 }
-                // if we are not in a quote then its just a space, set the flag and move forward
+                // if we are not in a quote and we havent taken the space in yet, add it, then we will skip the rest
+                else if !state.start_single_quote && !state.space_seen{
+                    let last_index: usize = tokens.args.len() - 1;
+                    tokens.args[last_index].push(c);
+                    state.space_seen = true;
+                }
                 else{
-                    is_space = true;
                     continue;
                 }
+                state.space_seen = true;
+                state.quote_seen = false;
             },
             _ => {
                 // if we have character we push on to the latest string, unless. it was a space last, then we make a new one
                 // pushing to vec moves the ownership
-                if is_space{
+                if state.space_seen{
                     let mut tmp_str: String = String::new();
                     tmp_str.push(c);
                     tokens.args.push(tmp_str);
                 }
                 else{
-                    let last_index: usize = tokens.args.len();
-                    tokens.args[last_index].push(c);
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else {
+                        let last_index: usize = tokens.args.len()-1;
+                        tokens.args[last_index].push(c);
+                    }
                 }
-            }, // normal char
+                state.quote_seen = false;
+                state.start_single_quote = false;
+                state.space_seen = false;
+            },
         }
     }
+
+    dbg!(tokens.command);
+    dbg!(tokens.args);
 }
 
 
