@@ -1,3 +1,4 @@
+use std::intrinsics::simd::simd_and;
 use std::io::{stdin,stdout,Write, Error};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{ PathBuf};
@@ -11,9 +12,10 @@ const S_IXUSR: u32 = 0o100;
 
 // tokens will need to own data since the data parsing will not live past the parsing func
 struct Tokens {
-    command: String,
-    args: Vec<String>
+    command: String, 
+    args: Vec<String> 
 }
+
 
 fn echo_util(tokens: SplitWhitespace<'_>){
     for token in tokens{
@@ -153,19 +155,86 @@ fn change_directory_util(mut tokens: SplitWhitespace<'_>){
 //      - empty quotes ignored
 //      - next to each other == concat them
 //      - remove the actual quotes when processed
-fn tokenizer(input: &str){
+/*
+Tokenizer Rules
 
+*/
+fn tokenizer(input: &str){
+    // can I put it all into a stack vector, with delimintor between tokens?
+    // let words: Vec<&str> = input.split(" ").collect();
+    let mut tokens: Tokens = Tokens{
+        command : String::new(),
+        args : Vec::new(),
+    };
+
+    // get command, probably faster than split_whitespace to then ignore the rest
+    while let Some(c) = input.chars().next(){
+        if c.is_whitespace(){
+            break;
+        }
+        else{
+            tokens.command.push(c);
+        }
+    }
+    // let mut command: String = String::new();
+    // let mut args: Vec<String> = Vec::new();
+    let mut single_quote: bool = false;
+    let mut is_space: bool = false;
+    let mut quote_last: bool = false;
+
+    // dbg!(words);
+
+    while let Some(c) = input.chars().next(){
+        match c {
+            '\'' => {
+                // if single quote and last char was quote, ignore or concat them
+                // if single quote is already set, then this must be end quote
+                if single_quote && quote_last{
+                    single_quote = false;
+                    continue;
+                }
+                else if is_space {
+                    // let tmp_str: String = String::new();
+                }
+                // single quote is false 
+                else{
+
+                }
+                // let last_index: usize = tokens.args.len();
+                // tokens.args[last_index].push(c);
+                // single_quote = true;
+
+            },
+            ' ' => {
+                // if we saw a single quote, then we need to keep the space and its not a normal space but a char
+                if single_quote{
+                    let last_index: usize = tokens.args.len();
+                    tokens.args[last_index].push(c);
+                    is_space = true;
+                }
+                // if we are not in a quote then its just a space, set the flag and move forward
+                else{
+                    is_space = true;
+                    continue;
+                }
+            },
+            _ => {
+                // if we have character we push on to the latest string, unless. it was a space last, then we make a new one
+                // pushing to vec moves the ownership
+                if is_space{
+                    let mut tmp_str: String = String::new();
+                    tmp_str.push(c);
+                    tokens.args.push(tmp_str);
+                }
+                else{
+                    let last_index: usize = tokens.args.len();
+                    tokens.args[last_index].push(c);
+                }
+            }, // normal char
+        }
+    }
 }
 
-
-// fn clean_tokens(input: &str){
-//     let vec_tokens: Vec<String> = input
-//         .split(' ')
-//         .map(|token: &str| {
-//             token.to_lowercase()
-//         })
-//         .collect();
-// }
 
 fn shell_util(mut tokens: SplitWhitespace<'_>){
     // execute shell util calling helper functions or not found
@@ -210,9 +279,10 @@ fn main() {
             break;
         }
 
-        let tokens:SplitWhitespace<'_> = input.split_whitespace();
+        //let tokens:SplitWhitespace<'_> = input.split_whitespace();
         // let tokens
+        tokenizer(input);
 
-        shell_util(tokens);
+        //shell_util(tokens);
     }
 }
