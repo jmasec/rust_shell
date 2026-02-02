@@ -24,8 +24,10 @@ impl Tokens {
     }
 }
 
+#[derive(Debug)]
 struct TokenState {
     start_single_quote: bool,
+    double_quote: bool,
     quote_seen: bool,
     space_seen: bool,
 }
@@ -34,6 +36,7 @@ impl TokenState {
     fn new_token_state() -> TokenState{
         TokenState{
             start_single_quote: false,
+            double_quote: false,
             quote_seen: false,
             space_seen: false,
         }
@@ -204,6 +207,7 @@ fn tokenizer(input: &str){
         println!("{}", c);
         match c {
             '\'' => {
+                println!("QUOTE {:?}", state);
                 // if single quote and last char was quote, ignore or concat them
                 // if single quote is already set, then this must be end quote
                 if state.start_single_quote && state.quote_seen{
@@ -226,9 +230,14 @@ fn tokenizer(input: &str){
                 // let last_index: usize = tokens.args.len();
                 // tokens.args[last_index].push(c);
                 // single_quote = true;
+                println!("QUOTE {:?}", state);
 
             },
+            '\"' => {
+                println!("DOUBLE {:?}", state);
+            },
             ' ' => {
+                println!("SPACE {:?}", state);
                 // if we saw a single quote, then we need to keep the space and its not a normal space but a char
                 if state.start_single_quote{
                     if tokens.args.len() == 0{
@@ -252,8 +261,10 @@ fn tokenizer(input: &str){
                 }
                 state.space_seen = true;
                 state.quote_seen = false;
+                println!("SPACE {:?}", state);
             },
             _ => {
+                println!("CHAR {:?}", state);
                 // if we have character we push on to the latest string, unless. it was a space last, then we make a new one
                 // pushing to vec moves the ownership
                 if state.space_seen{
@@ -273,8 +284,8 @@ fn tokenizer(input: &str){
                     }
                 }
                 state.quote_seen = false;
-                state.start_single_quote = false;
                 state.space_seen = false;
+                println!("CHAR {:?}", state);
             },
         }
     }
