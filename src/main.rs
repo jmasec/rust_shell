@@ -27,8 +27,9 @@ impl Tokens {
 #[derive(Debug)]
 struct TokenState {
     start_single_quote: bool,
-    double_quote: bool,
-    quote_seen: bool,
+    start_double_quote: bool,
+    double_quote_seen: bool,
+    single_quote_seen: bool,
     space_seen: bool,
 }
 
@@ -36,8 +37,9 @@ impl TokenState {
     fn new_token_state() -> TokenState{
         TokenState{
             start_single_quote: false,
-            double_quote: false,
-            quote_seen: false,
+            start_double_quote: false,
+            double_quote_seen: false,
+            single_quote_seen: false,
             space_seen: false,
         }
     }
@@ -202,7 +204,8 @@ fn tokenizer(input: &str){
             tokens.command.push(c);
         }
     }
-
+    // I need to put the tokens back together to dont split it up and count it as on token
+    // "hello    world" -> Token(hello      world) or Token(hello      ) + Token(world) 
     while let Some(c) = chars.next(){
         println!("{}", c);
         match c {
@@ -210,11 +213,22 @@ fn tokenizer(input: &str){
                 println!("QUOTE {:?}", state);
                 // if single quote and last char was quote, ignore or concat them
                 // if single quote is already set, then this must be end quote
-                if state.start_single_quote && state.quote_seen{
+                if state.double_quote_seen{
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else{
+                        let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].push(c);
+                    }
+                }
+                else if state.start_single_quote && state.single_quote_seen{
                     state.start_single_quote = false;
                     continue;
                 }
-                else if state.quote_seen && !state.start_single_quote {
+                else if state.single_quote_seen && !state.start_single_quote {
                     state.start_single_quote = true;
                 }
                 else if state.start_single_quote{
@@ -225,7 +239,7 @@ fn tokenizer(input: &str){
                 else{
                     state.start_single_quote = true;
                 }
-                state.quote_seen = true;
+                state.single_quote_seen = true;
                 state.space_seen = false;
                 // let last_index: usize = tokens.args.len();
                 // tokens.args[last_index].push(c);
@@ -235,11 +249,39 @@ fn tokenizer(input: &str){
             },
             '\"' => {
                 println!("DOUBLE {:?}", state);
+
+                // if state.start_double_quote
+                if state.start_single_quote{
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else{
+                        let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].push(c);
+                    }
+                }
+                else if state.start_double_quote && state.double_quote_seen{
+                    state.double_quote_seen = false;
+                    continue;
+                }
+                else if state.double_quote_seen && !state.start_double_quote {
+                    state.start_double_quote = true;
+                }
+                else if state.start_double_quote{
+                    state.start_double_quote = false;
+                }
+                else{
+                    state.double_quote_seen = true;
+                }
+
+                println!("DOUBLE {:?}", state);
             },
             ' ' => {
                 println!("SPACE {:?}", state);
                 // if we saw a single quote, then we need to keep the space and its not a normal space but a char
-                if state.start_single_quote{
+                if state.start_single_quote || state.double_quote_seen{
                     if tokens.args.len() == 0{
                         let mut tmp_str: String = String::new();
                         tmp_str.push(c);
@@ -260,7 +302,7 @@ fn tokenizer(input: &str){
                     continue;
                 }
                 state.space_seen = true;
-                state.quote_seen = false;
+                state.single_quote_seen = false;
                 println!("SPACE {:?}", state);
             },
             _ => {
@@ -283,7 +325,7 @@ fn tokenizer(input: &str){
                         tokens.args[last_index].push(c);
                     }
                 }
-                state.quote_seen = false;
+                state.single_quote_seen = false;
                 state.space_seen = false;
                 println!("CHAR {:?}", state);
             },
