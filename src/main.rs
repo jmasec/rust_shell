@@ -1,4 +1,5 @@
 use std::io::{stdin,stdout,Write, Error};
+use std::os::macos::raw::stat;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{ PathBuf};
 use std::str::SplitWhitespace;
@@ -30,6 +31,7 @@ struct TokenState {
     start_double_quote: bool,
     double_quote_seen: bool,
     single_quote_seen: bool,
+    backslashed: bool,
     space_seen: bool,
 }
 
@@ -40,6 +42,7 @@ impl TokenState {
             start_double_quote: false,
             double_quote_seen: false,
             single_quote_seen: false,
+            backslashed: false,
             space_seen: false,
         }
     }
@@ -209,11 +212,27 @@ fn tokenizer(input: &str){
     while let Some(c) = chars.next(){
         println!("{}", c);
         match c {
+            '\\' => {
+                if !state.start_double_quote && !state.start_single_quote{
+                    state.backslashed = true;
+                }
+            }
             '\'' => {
                 println!("QUOTE {:?}", state);
                 // if single quote and last char was quote, ignore or concat them
                 // if single quote is already set, then this must be end quote
-                if state.double_quote_seen{
+                if state.backslashed{
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else{
+                        let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].push(c);
+                    }
+                }
+                else if state.double_quote_seen{
                     if tokens.args.len() == 0{
                         let mut tmp_str: String = String::new();
                         tmp_str.push(c);
@@ -241,6 +260,7 @@ fn tokenizer(input: &str){
                 }
                 state.single_quote_seen = true;
                 state.space_seen = false;
+                state.backslashed = false;
                 // let last_index: usize = tokens.args.len();
                 // tokens.args[last_index].push(c);
                 // single_quote = true;
@@ -251,7 +271,18 @@ fn tokenizer(input: &str){
                 println!("DOUBLE {:?}", state);
 
                 // if state.start_double_quote
-                if state.start_single_quote{
+                if state.backslashed{
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else{
+                        let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].push(c);
+                    }
+                }
+                else if state.start_single_quote{
                     if tokens.args.len() == 0{
                         let mut tmp_str: String = String::new();
                         tmp_str.push(c);
@@ -276,12 +307,25 @@ fn tokenizer(input: &str){
                     state.double_quote_seen = true;
                 }
 
+                state.backslashed = false;
+
                 println!("DOUBLE {:?}", state);
             },
             ' ' => {
                 println!("SPACE {:?}", state);
                 // if we saw a single quote, then we need to keep the space and its not a normal space but a char
-                if state.start_single_quote || state.double_quote_seen{
+                if state.backslashed{
+                    if tokens.args.len() == 0{
+                        let mut tmp_str: String = String::new();
+                        tmp_str.push(c);
+                        tokens.args.push(tmp_str);
+                    }
+                    else{
+                        let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].push(c);
+                    }
+                }
+                else if state.start_single_quote || state.double_quote_seen{
                     if tokens.args.len() == 0{
                         let mut tmp_str: String = String::new();
                         tmp_str.push(c);
@@ -303,6 +347,7 @@ fn tokenizer(input: &str){
                 }
                 state.space_seen = true;
                 state.single_quote_seen = false;
+                state.backslashed = false;
                 println!("SPACE {:?}", state);
             },
             _ => {
@@ -327,6 +372,7 @@ fn tokenizer(input: &str){
                 }
                 state.single_quote_seen = false;
                 state.space_seen = false;
+                state.backslashed = false;
                 println!("CHAR {:?}", state);
             },
         }
