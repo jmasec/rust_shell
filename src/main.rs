@@ -231,6 +231,8 @@ fn tokenizer(input: &str){
                         let last_index: usize = tokens.args.len() - 1;
                         tokens.args[last_index].push(c);
                     }
+                    state.backslashed = false;
+                    continue;
                 }
                 else if state.double_quote_seen{
                     if tokens.args.len() == 0{
@@ -260,7 +262,6 @@ fn tokenizer(input: &str){
                 }
                 state.single_quote_seen = true;
                 state.space_seen = false;
-                state.backslashed = false;
                 // let last_index: usize = tokens.args.len();
                 // tokens.args[last_index].push(c);
                 // single_quote = true;
@@ -281,6 +282,8 @@ fn tokenizer(input: &str){
                         let last_index: usize = tokens.args.len() - 1;
                         tokens.args[last_index].push(c);
                     }
+                    state.backslashed = false;
+                    continue;
                 }
                 else if state.start_single_quote{
                     if tokens.args.len() == 0{
@@ -324,6 +327,8 @@ fn tokenizer(input: &str){
                         let last_index: usize = tokens.args.len() - 1;
                         tokens.args[last_index].push(c);
                     }
+                    state.backslashed = false;
+                    continue;
                 }
                 else if state.start_single_quote || state.double_quote_seen{
                     if tokens.args.len() == 0{
