@@ -213,9 +213,26 @@ fn tokenizer(input: &str){
         println!("{}", c);
         match c {
             '\\' => {
+                println!("BACKSLASH {:?}", state);
+                if tokens.args.len() == 0{
+                    let mut tmp_str: String = String::new();
+                    tmp_str.push(c);
+                    tokens.args.push(tmp_str);
+                }
+                else{
+                    let last_index: usize = tokens.args.len() - 1;
+                    tokens.args[last_index].push(c);
+                }
+                state.backslashed = false;
+
                 if !state.start_double_quote && !state.start_single_quote{
                     state.backslashed = true;
                 }
+                dbg!(&tokens.args);
+                state.single_quote_seen = false;
+                state.double_quote_seen = false;
+                state.space_seen = false;
+                println!("BACKSLASH {:?}", state);
             }
             '\'' => {
                 println!("QUOTE {:?}", state);
@@ -232,9 +249,8 @@ fn tokenizer(input: &str){
                         tokens.args[last_index].push(c);
                     }
                     state.backslashed = false;
-                    continue;
                 }
-                else if state.double_quote_seen{
+                else if state.start_double_quote{
                     if tokens.args.len() == 0{
                         let mut tmp_str: String = String::new();
                         tmp_str.push(c);
@@ -247,7 +263,6 @@ fn tokenizer(input: &str){
                 }
                 else if state.start_single_quote && state.single_quote_seen{
                     state.start_single_quote = false;
-                    continue;
                 }
                 else if state.single_quote_seen && !state.start_single_quote {
                     state.start_single_quote = true;
@@ -262,9 +277,11 @@ fn tokenizer(input: &str){
                 }
                 state.single_quote_seen = true;
                 state.space_seen = false;
+                
                 // let last_index: usize = tokens.args.len();
                 // tokens.args[last_index].push(c);
                 // single_quote = true;
+                dbg!(&tokens.args);
                 println!("QUOTE {:?}", state);
 
             },
@@ -283,7 +300,6 @@ fn tokenizer(input: &str){
                         tokens.args[last_index].push(c);
                     }
                     state.backslashed = false;
-                    continue;
                 }
                 else if state.start_single_quote{
                     if tokens.args.len() == 0{
@@ -298,20 +314,17 @@ fn tokenizer(input: &str){
                 }
                 else if state.start_double_quote && state.double_quote_seen{
                     state.double_quote_seen = false;
-                    continue;
-                }
-                else if state.double_quote_seen && !state.start_double_quote {
-                    state.start_double_quote = true;
                 }
                 else if state.start_double_quote{
                     state.start_double_quote = false;
                 }
                 else{
-                    state.double_quote_seen = true;
+                    state.start_double_quote = true;
                 }
-
+                state.double_quote_seen = true;
                 state.backslashed = false;
-
+                state.space_seen = false;
+                dbg!(&tokens.args);
                 println!("DOUBLE {:?}", state);
             },
             ' ' => {
@@ -330,7 +343,7 @@ fn tokenizer(input: &str){
                     state.backslashed = false;
                     continue;
                 }
-                else if state.start_single_quote || state.double_quote_seen{
+                else if state.start_single_quote || state.start_double_quote{
                     if tokens.args.len() == 0{
                         let mut tmp_str: String = String::new();
                         tmp_str.push(c);
@@ -342,17 +355,15 @@ fn tokenizer(input: &str){
                     }
                 }
                 // if we are not in a quote and we havent taken the space in yet, add it, then we will skip the rest
-                else if !state.start_single_quote && !state.space_seen{
+                else if (!state.start_single_quote && !state.start_double_quote) && !state.space_seen{
                     let last_index: usize = tokens.args.len() - 1;
                     tokens.args[last_index].push(c);
                     state.space_seen = true;
                 }
-                else{
-                    continue;
-                }
                 state.space_seen = true;
                 state.single_quote_seen = false;
-                state.backslashed = false;
+                // state.backslashed = false;
+                dbg!(&tokens.args);
                 println!("SPACE {:?}", state);
             },
             _ => {
@@ -376,15 +387,20 @@ fn tokenizer(input: &str){
                     }
                 }
                 state.single_quote_seen = false;
+                state.double_quote_seen = false;
                 state.space_seen = false;
                 state.backslashed = false;
+                dbg!(&tokens.args);
                 println!("CHAR {:?}", state);
             },
         }
     }
 
     dbg!(tokens.command);
-    dbg!(tokens.args);
+    // dbg!(tokens.args);
+    for arg in &tokens.args {
+        println!("{}", arg);
+}
 }
 
 
