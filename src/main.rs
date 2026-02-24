@@ -1,5 +1,4 @@
 use std::io::{stdin,stdout,Write, Error};
-use std::os::macos::raw::stat;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{ PathBuf};
 use std::str::SplitWhitespace;
@@ -215,20 +214,19 @@ fn tokenizer(input: &str){
             '\\' => {
                 println!("BACKSLASH {:?}", state);
                 if tokens.args.len() == 0{
-                    let mut tmp_str: String = String::new();
-                    tmp_str.push(c);
-                    tokens.args.push(tmp_str);
+                let mut tmp_str: String = String::new();
+                tmp_str.push(c);
+                tokens.args.push(tmp_str);
                 }
                 else{
                     let last_index: usize = tokens.args.len() - 1;
                     tokens.args[last_index].push(c);
                 }
-                state.backslashed = false;
 
                 if !state.start_double_quote && !state.start_single_quote{
                     state.backslashed = true;
                 }
-                dbg!(&tokens.args);
+                state.backslashed = true;
                 state.single_quote_seen = false;
                 state.double_quote_seen = false;
                 state.space_seen = false;
@@ -297,6 +295,7 @@ fn tokenizer(input: &str){
                     }
                     else{
                         let last_index: usize = tokens.args.len() - 1;
+                        tokens.args[last_index].pop();
                         tokens.args[last_index].push(c);
                     }
                     state.backslashed = false;
@@ -370,7 +369,12 @@ fn tokenizer(input: &str){
                 println!("CHAR {:?}", state);
                 // if we have character we push on to the latest string, unless. it was a space last, then we make a new one
                 // pushing to vec moves the ownership
-                if state.space_seen{
+                if c == 'n' && state.backslashed{
+                    let last_index: usize = tokens.args.len() - 1;
+                    tokens.args[last_index].pop();
+                    tokens.args[last_index].push(c);
+                }
+                else if state.space_seen{
                     let mut tmp_str: String = String::new();
                     tmp_str.push(c);
                     tokens.args.push(tmp_str);
