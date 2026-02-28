@@ -24,6 +24,46 @@ impl Tokens {
     }
 }
 
+/*
+(current_state, event)
+    →
+transition function
+    →
+(next_state, actions)
+    →
+executor runs actions
+*/
+
+// Parsing Mode
+#[derive(PartialEq)]
+enum TokenStates{
+    Default,
+    InWord,
+    InDoubleQuote,
+    InSingleQuote,
+    InEscape
+}
+
+// Event = Character
+#[derive(PartialEq)]
+enum CharacterEvent{
+    Whitespace,
+    Letter,
+    DoubleQuote,
+    SingleQuote,
+    Backslash,
+}
+
+#[derive(PartialEq)]
+enum Action{
+    AppendChar,
+    StartToken,
+    EmitToken
+}
+
+
+// Actions = Append char, emit token, clear buffer, raise error, etc
+
 #[derive(Debug)]
 struct TokenState {
     start_single_quote: bool,
@@ -190,6 +230,115 @@ fn change_directory_util(mut tokens: SplitWhitespace<'_>){
 Tokenizer Rules
 
 */
+
+fn execute(action: Action, tokens: &mut Tokens, current_char: &String){
+    // pass mutable reference of Tokens since we need to update it but I dont want ownership
+    if action == Action::AppendChar{
+
+    }
+    if action == Action::EmitToken{
+
+    }
+    if action == Action::StartToken{
+
+    }
+}
+
+
+fn transition(state: TokenStates, event: CharacterEvent) -> (TokenStates, Vec<Action>){
+    let actions: Vec<Action> = Vec::new();
+    if state == TokenStates::Default{
+        if event == CharacterEvent::Letter{
+            actions.push(Action::AppendChar);
+            actions.push(Action::StartToken);
+            return (TokenStates::InWord, actions)
+        }
+        if event == CharacterEvent::DoubleQuote{
+
+        }
+        if event == CharacterEvent::SingleQuote{
+
+        }
+        if event == CharacterEvent::Backslash{
+
+        }
+        if event == CharacterEvent::Whitespace{
+
+        }
+    }
+
+    if state == TokenStates::InDoubleQuote{
+        if event == CharacterEvent::Letter{
+
+        }
+        if event == CharacterEvent::DoubleQuote{
+
+        }
+        if event == CharacterEvent::SingleQuote{
+
+        }
+        if event == CharacterEvent::Backslash{
+
+        }
+        if event == CharacterEvent::Whitespace{
+
+        }
+    }
+
+    if state == TokenStates::InSingleQuote{
+        if event == CharacterEvent::Letter{
+
+        }
+        if event == CharacterEvent::DoubleQuote{
+
+        }
+        if event == CharacterEvent::SingleQuote{
+
+        }
+        if event == CharacterEvent::Backslash{
+
+        }
+        if event == CharacterEvent::Whitespace{
+
+        }
+    }
+
+    if state == TokenStates::InEscape{
+        if event == CharacterEvent::Letter{
+
+        }
+        if event == CharacterEvent::DoubleQuote{
+
+        }
+        if event == CharacterEvent::SingleQuote{
+
+        }
+        if event == CharacterEvent::Backslash{
+
+        }
+        if event == CharacterEvent::Whitespace{
+
+        }
+    }
+
+    else{
+        ();
+    }
+}
+
+fn categorize(chararcter: char) -> CharacterEvent{
+    if chararcter == ' '{
+        return CharacterEvent::Whitespace
+    }
+    if chararcter == '\\'{
+        return CharacterEvent::Backslash
+    }
+    if chararcter == '\''{
+        return CharacterEvent::SingleQuote
+    }
+}
+
+
 fn tokenizer(input: &str){
     // can I put it all into a stack vector, with delimintor between tokens?
     // let words: Vec<&str> = input.split(" ").collect();
@@ -205,6 +354,11 @@ fn tokenizer(input: &str){
         else{
             tokens.command.push(c);
         }
+    }
+
+
+    while let Some(c) = chars.next(){
+        let event: CharacterEvent = categorize(c);
     }
     // I need to put the tokens back together to dont split it up and count it as on token
     // "hello    world" -> Token(hello      world) or Token(hello      ) + Token(world) 
